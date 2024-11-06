@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'Cinzel';
+  src: url('/fonts/Cinzel-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -57,4 +64,8 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+.font-cinzel {
+  font-family: 'Cinzel', serif;
 }

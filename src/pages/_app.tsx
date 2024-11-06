@@ -1,3 +1,4 @@
+// src/pages/_app.tsx
 import "@/styles/globals.css";
 import "@rainbow-me/rainbowkit/styles.css";
 import type { AppProps } from "next/app";
@@ -13,7 +14,7 @@ function MyApp({ Component, pageProps }: AppProps) {
   return (
     <WagmiProvider config={config}>
       <QueryClientProvider client={client}>
-        <RainbowKitProvider>
+        <RainbowKitProvider showRecentTransactions={true}>
           <Component {...pageProps} />
           <Toaster />
         </RainbowKitProvider>

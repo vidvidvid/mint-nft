@@ -7,8 +7,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Upload } from "lucide-react";
-import { uploadToIPFS, createMetadata } from "@/lib/ipfs";
+import {
+  uploadToIPFS,
+  createMetadata,
+  uploadMetadataToIPFS,
+  verifyNFT,
+} from "@/lib/ipfs";
 import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI } from "@/lib/contracts";
+import { Footer } from "./footer";
+import SpecialButton from "./special-button";
 
 export function MintingForm() {
   const { address, isConnected } = useAccount();
@@ -47,6 +54,7 @@ export function MintingForm() {
 
       // Upload image to IPFS
       const imageUrl = await uploadToIPFS(formData.image);
+      console.log("Image uploaded:", imageUrl);
 
       // Create and upload metadata
       const metadata = createMetadata(
@@ -54,14 +62,18 @@ export function MintingForm() {
         formData.description,
         imageUrl
       );
-      const tokenUri = await uploadToIPFS(new Blob([JSON.stringify(metadata)]));
+      const tokenUri = await uploadMetadataToIPFS(metadata);
+      console.log("Metadata uploaded:", tokenUri);
 
       // Mint NFT
       const hash = await writeContractAsync({
         address: NFT_CONTRACT_ADDRESS,
         abi: NFT_CONTRACT_ABI,
         functionName: "mint",
-        args: [address, tokenUri],
+        args: [
+          address,
+          "https://media.istockphoto.com/id/1307523871/vector/24-modern-liquid-irregular-blob-shape-abstract-elements-graphic-flat-style-design-fluid.jpg?s=2048x2048&w=is&k=20&c=6nPZXNRNjvDkLVPeuJ8t_aBlO8Dq8tOhcMtvjKZxGRM=",
+        ],
       });
       console.log("hash", hash);
 
@@ -89,22 +101,28 @@ export function MintingForm() {
   };
 
   return (
-    <div className='max-w-3xl mx-auto'>
-      <div className='mb-8 text-center'>
-        <h2 className='text-3xl font-bold text-white tracking-wider'>
+    <div className='container mx-auto flex flex-col justify-center items-center p-4'>
+      <Card className='mb-16 text-center bg-white/10 backdrop-blur-md p-12 rounded-xl shadow-2xl w-[70%]'>
+        <h2 className='text-4xl font-bold text-white tracking-wider font-cinzel mb-6'>
           MINT NEW NFT
         </h2>
-        <p className='text-gray-400 mt-2'>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed sem
-          tortor quis amet scelerisque vivamus egestas.
+        <p className='text-gray-400 text-xl'>
+          Create your unique NFT on the Ethereum blockchain
         </p>
-      </div>
+      </Card>
 
-      <Card className='bg-transparent border border-purple-500/20 shadow-xl backdrop-blur-sm'>
-        <CardContent className='pt-6'>
-          <form onSubmit={handleSubmit} className='space-y-6'>
+      {/* <Button
+        onClick={verifyNFT}
+        className='mb-6 bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
+      >
+        VERIFY
+      </Button> */}
+
+      <Card className='bg-[#030014]/50 border border-purple-500/20 shadow-2xl backdrop-blur-sm max-w-3xl'>
+        <CardContent className='pt-8'>
+          <form onSubmit={handleSubmit} className='space-y-8'>
             <div
-              className='border-2 border-dashed border-purple-500/30 rounded-lg p-8 text-center cursor-pointer hover:border-purple-500/50 transition-colors'
+              className='border-2 border-dashed border-purple-500/30 rounded-xl p-10 text-center cursor-pointer hover:border-purple-500/50 transition-colors bg-purple-500/5'
               onClick={() => document.getElementById("image-upload")?.click()}
               onKeyUp={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -126,11 +144,13 @@ export function MintingForm() {
                   }
                 }}
               />
-              <Upload className='w-8 h-8 text-purple-500 mx-auto mb-2' />
-              <div className='text-sm text-gray-400'>
+              <Upload className='w-12 h-12 text-purple-500 mx-auto mb-4' />
+              <div className='text-lg text-purple-300'>
                 {formData.image ? formData.image.name : "Upload Image"}
               </div>
-              <div className='text-xs text-gray-500 mt-1'>format supported</div>
+              <div className='text-sm text-purple-500/70 mt-2'>
+                Supported formats: JPG, PNG, GIF
+              </div>
             </div>
 
             <Input
@@ -139,7 +159,7 @@ export function MintingForm() {
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, title: e.target.value }))
               }
-              className='bg-gray-800/50 border-purple-500/20 focus:border-purple-500/50 text-white h-12'
+              className='bg-purple-500/5 border-purple-500/20 focus:border-purple-500/50 text-white h-14 text-lg'
             />
 
             <Textarea
@@ -151,32 +171,28 @@ export function MintingForm() {
                   description: e.target.value,
                 }))
               }
-              className='bg-gray-800/50 border-purple-500/20 focus:border-purple-500/50 text-white min-h-[120px]'
+              className='bg-purple-500/5 border-purple-500/20 focus:border-purple-500/50 text-white min-h-[140px] text-lg'
             />
 
             <div className='flex gap-4 pt-4'>
               <Button
-                type='submit'
+                type='button'
                 disabled={!isConnected || isLoading}
-                className='flex-1 bg-purple-500 hover:bg-purple-600 text-white h-12'
-                variant='default'
+                className='flex-1 text-white hover:text-purple-300 hover:bg-purple-500/10 h-14 text-sm font-medium tracking-wide'
+                variant='ghost'
               >
-                Mint and list immediately
+                {isLoading ? "Minting..." : "Mint without listing"}
               </Button>
+              <SpecialButton
+                disabled={!isConnected || isLoading}
+                label='Mint and list immediately'
+              />
             </div>
           </form>
         </CardContent>
       </Card>
 
-      <footer className='mt-8 flex justify-between items-center text-sm text-gray-400'>
-        <div>NFT Sea 2024 © All right reserved</div>
-        <Button
-          variant='ghost'
-          className='text-purple-400 hover:text-purple-300 hover:bg-purple-500/10'
-        >
-          Explore Marketplace
-        </Button>
-      </footer>
+      <Footer />
     </div>
   );
 }

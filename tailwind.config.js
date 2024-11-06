@@ -11,6 +11,9 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        cinzel: ["var(--font-cinzel)"],
+      },
       borderColor: {
         border: "hsl(var(--border))",
       },
