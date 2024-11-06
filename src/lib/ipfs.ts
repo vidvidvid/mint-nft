@@ -1,20 +1,17 @@
-// src/lib/ipfs.ts
 import { PinataSDK } from "pinata";
+import { createPublicClient, http } from "viem";
+import { sepolia } from "viem/chains";
 
 const pinata = new PinataSDK({
-  pinataJwt: process.env.NEXT_PUBLIC_PINATA_JWT as string, // Note: changed from pinataJWTKey to pinataJwt
-  pinataGateway: "amethyst-quiet-firefly-666.mypinata.cloud",
+  pinataJwt: process.env.NEXT_PUBLIC_PINATA_JWT as string,
+  pinataGateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY as string,
 });
 
-const PINATA_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
+export const PINATA_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
 
 export async function uploadToIPFS(file: File): Promise<string> {
   try {
     const result = await pinata.upload.file(file);
-    console.log(
-      "`${PINATA_GATEWAY}${result.cid}`",
-      `${PINATA_GATEWAY}${result.cid}`
-    );
     return `${PINATA_GATEWAY}${result.cid}`; // Using Pinata gateway
   } catch (error) {
     console.error("IPFS upload error:", error);
@@ -44,9 +41,6 @@ export async function uploadMetadataToIPFS(metadata: any): Promise<string> {
     throw new Error("Failed to upload metadata to IPFS");
   }
 }
-
-import { createPublicClient, http } from "viem";
-import { sepolia } from "viem/chains";
 
 const client = createPublicClient({
   chain: sepolia,

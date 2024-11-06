@@ -7,15 +7,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Upload } from "lucide-react";
-import {
-  uploadToIPFS,
-  createMetadata,
-  uploadMetadataToIPFS,
-  verifyNFT,
-} from "@/lib/ipfs";
+import { uploadToIPFS, createMetadata, uploadMetadataToIPFS } from "@/lib/ipfs";
 import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI } from "@/lib/contracts";
 import { Footer } from "./footer";
 import SpecialButton from "./special-button";
+import MintingDialog from "./minting-dialog";
 
 export function MintingForm() {
   const { address, isConnected } = useAccount();
@@ -26,6 +22,10 @@ export function MintingForm() {
     description: "",
     image: null as File | null,
   });
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [mintingError, setMintingError] = useState(false);
+  const [transactionHash, setTransactionHash] = useState<string>("");
+  const [mintedImageUrl, setMintedImageUrl] = useState<string>("");
 
   const { writeContractAsync } = useWriteContract();
 
@@ -55,6 +55,8 @@ export function MintingForm() {
       // Upload image to IPFS
       const imageUrl = await uploadToIPFS(formData.image);
       console.log("Image uploaded:", imageUrl);
+      setMintedImageUrl(imageUrl); // Store the image URL
+      console.log("imageUrl", imageUrl);
 
       // Create and upload metadata
       const metadata = createMetadata(
@@ -70,12 +72,11 @@ export function MintingForm() {
         address: NFT_CONTRACT_ADDRESS,
         abi: NFT_CONTRACT_ABI,
         functionName: "mint",
-        args: [
-          address,
-          "https://media.istockphoto.com/id/1307523871/vector/24-modern-liquid-irregular-blob-shape-abstract-elements-graphic-flat-style-design-fluid.jpg?s=2048x2048&w=is&k=20&c=6nPZXNRNjvDkLVPeuJ8t_aBlO8Dq8tOhcMtvjKZxGRM=",
-        ],
+        args: [address, tokenUri],
       });
-      console.log("hash", hash);
+      setTransactionHash(hash);
+      setMintingError(false);
+      setDialogOpen(true);
 
       toast({
         title: "Success",
@@ -90,11 +91,8 @@ export function MintingForm() {
       });
     } catch (error) {
       console.error("Minting error:", error);
-      toast({
-        title: "Error",
-        description: "Failed to mint NFT. Please try again.",
-        variant: "destructive",
-      });
+      setMintingError(true);
+      setDialogOpen(true);
     } finally {
       setIsLoading(false);
     }
@@ -193,6 +191,14 @@ export function MintingForm() {
       </Card>
 
       <Footer />
+
+      <MintingDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        isError={mintingError}
+        transactionHash={transactionHash}
+        imageUrl={mintedImageUrl} // Pass the image URL
+      />
     </div>
   );
 }
