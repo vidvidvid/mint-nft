@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,16 +8,14 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, XCircle } from "lucide-react";
-import SpecialButton from "./special-button";
-import { ipfsService } from "@/lib/ipfs";
+import { XCircle, Loader2, ExternalLink } from "lucide-react";
+import { useTransaction, useBlockNumber } from "wagmi";
 
 interface MintingDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isError?: boolean;
   transactionHash?: string;
-  imageUrl?: string;
 }
 
 const MintingDialog: React.FC<MintingDialogProps> = ({
@@ -25,12 +23,23 @@ const MintingDialog: React.FC<MintingDialogProps> = ({
   onOpenChange,
   isError = false,
   transactionHash,
-  imageUrl,
 }) => {
-  const displayUrl = React.useMemo(
-    () => ipfsService.processUrl(imageUrl),
-    [imageUrl]
-  );
+  const { data: currentBlock } = useBlockNumber({
+    watch: true,
+  });
+
+  const { data: transaction } = useTransaction({
+    hash: transactionHash as `0x${string}`,
+  });
+
+  // Consider confirmed if transaction exists and block number exists
+  const isConfirmed = !!transaction?.blockNumber && !!currentBlock;
+  const showSuccessState = isConfirmed;
+  const showLoadingState = !showSuccessState && !isError && !!transactionHash;
+
+  const openSeaUrl = `https://testnets.opensea.io/assets/sepolia/${
+    transaction?.to
+  }/${transaction?.nonce ? transaction.nonce - 3 : 0}`;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -42,45 +51,50 @@ const MintingDialog: React.FC<MintingDialogProps> = ({
                 <XCircle className='h-8 w-8 text-red-500' />
               </div>
             </div>
-          ) : imageUrl ? (
-            <div className='w-48 h-48 mx-auto relative mb-6'>
-              <div className='absolute inset-0 bg-gradient-to-b from-blue-500/20 to-purple-500/20 rounded-full blur-2xl' />
-              {displayUrl && (
-                <img
-                  src={displayUrl}
-                  alt='Minted NFT'
-                  className='w-full h-full object-contain relative z-10 rounded-lg'
-                  onError={(e) => {
-                    console.error("Error loading image");
-                    e.currentTarget.style.display = "none";
-                  }}
-                />
-              )}
-            </div>
-          ) : (
+          ) : showLoadingState ? (
             <div className='mx-auto mb-4'>
-              <div className='h-12 w-12 rounded-full bg-green-500/20 flex items-center justify-center'>
-                <CheckCircle2 className='h-8 w-8 text-green-500' />
+              <div className='h-12 w-12 rounded-full bg-purple-500/20 flex items-center justify-center'>
+                <Loader2 className='h-8 w-8 text-purple-500 animate-spin' />
               </div>
             </div>
-          )}
+          ) : null}
 
           <DialogTitle className='text-2xl text-center font-bold text-white'>
-            {isError ? "Minting Failed" : "NFT Minted Successfully!"}
+            {isError
+              ? "Minting Failed"
+              : showLoadingState
+              ? "Minting your NFT..."
+              : "NFT Minted Successfully!"}
           </DialogTitle>
+
           <DialogDescription className='text-center text-gray-400'>
             {isError
               ? "There was an error while minting your NFT. Please try again."
+              : showLoadingState
+              ? "Please wait while we process your transaction..."
               : "Your NFT has been minted and added to your collection."}
           </DialogDescription>
         </DialogHeader>
 
-        {!isError && transactionHash && (
-          <div className='bg-purple-500/10 rounded-lg p-4 mt-2'>
-            <p className='text-sm text-purple-300 break-all'>
-              Transaction Hash: {transactionHash}
-            </p>
-          </div>
+        {showSuccessState && (
+          <>
+            {transactionHash && (
+              <div className='bg-purple-500/10 rounded-lg p-4'>
+                <p className='text-sm text-purple-300 break-all'>
+                  Transaction Hash: {transactionHash}
+                </p>
+              </div>
+            )}
+            <div className='mt-4'>
+              <Button
+                className='w-full bg-blue-500/20 text-blue-300 hover:bg-blue-500/30'
+                onClick={() => window.open(openSeaUrl, "_blank")}
+              >
+                <ExternalLink className='w-4 h-4 mr-2' />
+                View on OpenSea
+              </Button>
+            </div>
+          </>
         )}
 
         <DialogFooter className='sm:justify-center'>
@@ -88,13 +102,18 @@ const MintingDialog: React.FC<MintingDialogProps> = ({
             <Button variant='destructive' onClick={() => onOpenChange(false)}>
               Try Again
             </Button>
+          ) : showLoadingState ? (
+            <Button disabled className='bg-purple-500/20 text-purple-300'>
+              <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+              Processing
+            </Button>
           ) : (
-            <div>
-              <SpecialButton
-                onClick={() => onOpenChange(false)}
-                label='Continue'
-              />
-            </div>
+            <Button
+              onClick={() => onOpenChange(false)}
+              className='bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
+            >
+              Close
+            </Button>
           )}
         </DialogFooter>
       </DialogContent>

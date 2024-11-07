@@ -1,18 +1,17 @@
-// src/components/minting-form.tsx
+import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI } from "@/lib/contracts";
+import { ipfsService } from "@/lib/ipfs";
+import { NFTMetadata } from "@/types/ipfs";
+import { Upload } from "lucide-react";
 import { useState } from "react";
 import { useAccount, useWriteContract } from "wagmi";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
-import { Upload } from "lucide-react";
-import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI } from "@/lib/contracts";
 import { Footer } from "./footer";
-import SpecialButton from "./special-button";
 import MintingDialog from "./minting-dialog";
-import { NFTMetadata } from "@/types/ipfs";
-import { ipfsService } from "@/lib/ipfs";
+import { Card, CardContent } from "./ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { Textarea } from "./ui/textarea";
+import { Input } from "./ui/input";
+import { Button } from "./ui/button";
+import SpecialButton from "./special-button";
 
 interface DialogState {
   open: boolean;
@@ -21,7 +20,7 @@ interface DialogState {
   imageUrl: string;
 }
 
-export function MintingForm() {
+export default function MintingForm() {
   const { address, isConnected } = useAccount();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
@@ -42,6 +41,7 @@ export function MintingForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!isConnected || !address) {
       toast({
         title: "Error",
@@ -63,16 +63,8 @@ export function MintingForm() {
     try {
       setIsLoading(true);
 
-      // Upload image
+      // Upload image to IPFS
       const imageResult = await ipfsService.uploadFile(formData.image);
-
-      // Open dialog to show upload success
-      setDialogState((prev) => ({
-        ...prev,
-        open: true,
-        imageUrl: imageResult.url,
-        error: false,
-      }));
 
       // Create and upload metadata
       const metadata: NFTMetadata = {
@@ -81,9 +73,10 @@ export function MintingForm() {
         image: imageResult.url,
         attributes: [],
       };
+
       const { cid } = await ipfsService.uploadMetadata(metadata);
 
-      // Mint NFT
+      // Mint NFT using the metadata CID
       const hash = await writeContractAsync({
         address: NFT_CONTRACT_ADDRESS,
         abi: NFT_CONTRACT_ABI,
@@ -91,24 +84,18 @@ export function MintingForm() {
         args: [address, cid],
       });
 
-      setDialogState((prev) => ({
-        ...prev,
+      // Only show dialog after successful minting
+      setDialogState({
+        open: true,
+        error: false,
         transactionHash: hash,
-      }));
-
-      toast({
-        title: "Success",
-        description: "NFT minted successfully!",
+        imageUrl: imageResult.url,
       });
 
+      // Reset form
       setFormData({ title: "", description: "", image: null });
     } catch (error) {
       console.error("Minting error:", error);
-      setDialogState((prev) => ({
-        ...prev,
-        open: true,
-        error: true,
-      }));
       toast({
         title: "Error",
         description: "Failed to mint NFT",
@@ -129,13 +116,6 @@ export function MintingForm() {
           Create your unique NFT on the Ethereum blockchain
         </p>
       </Card>
-
-      {/* <Button
-        onClick={verifyNFT}
-        className='mb-6 bg-purple-500/20 text-purple-300 hover:bg-purple-500/30'
-      >
-        VERIFY
-      </Button> */}
 
       <Card className='bg-[#030014]/50 border border-purple-500/20 shadow-2xl backdrop-blur-sm max-w-3xl'>
         <CardContent className='pt-8'>
@@ -195,12 +175,12 @@ export function MintingForm() {
 
             <div className='flex gap-4 pt-4'>
               <Button
-                type='button'
+                type='submit'
                 disabled={!isConnected || isLoading}
                 className='flex-1 text-white hover:text-purple-300 hover:bg-purple-500/10 h-14 text-sm font-medium tracking-wide'
                 variant='ghost'
               >
-                {isLoading ? "Minting..." : "Mint without listing"}
+                Mint without listing
               </Button>
               <SpecialButton
                 disabled={!isConnected || isLoading}
@@ -218,7 +198,6 @@ export function MintingForm() {
         onOpenChange={(open) => setDialogState((prev) => ({ ...prev, open }))}
         isError={dialogState.error}
         transactionHash={dialogState.transactionHash}
-        imageUrl={dialogState.imageUrl}
       />
     </div>
   );

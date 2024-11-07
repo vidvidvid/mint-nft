@@ -34,7 +34,8 @@ export default async function handler(
       maxFileSize: 10 * 1024 * 1024,
     });
 
-    const [fields, files] = await new Promise((resolve, reject) => {
+    // @ts-ignore
+    const [_, files] = await new Promise((resolve, reject) => {
       form.parse(req, (err, fields, files) => {
         if (err) reject(err);
         resolve([fields, files]);

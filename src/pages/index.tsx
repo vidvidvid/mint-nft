@@ -1,12 +1,12 @@
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import type { NextPage } from "next";
-import { MintingForm } from "@/components/minting-form";
 import Head from "next/head";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { sepolia } from "viem/chains";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
 import { Logo } from "@/components/logo";
+import MintingForm from "@/components/minting-form";
 
 const Home: NextPage = () => {
   const chainId = useChainId();
