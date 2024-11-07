@@ -1,89 +1,84 @@
-import { PinataSDK } from "pinata";
-import { createPublicClient, http } from "viem";
-import { sepolia } from "viem/chains";
+// src/lib/ipfs.ts
+import type { IPFSResponse, NFTMetadata } from "../types/ipfs";
 
-const pinata = new PinataSDK({
-  pinataJwt: process.env.PINATA_JWT as string,
-  pinataGateway: process.env.PINATA_GATEWAY as string,
-});
+class IPFSService {
+  async uploadFile(file: File): Promise<IPFSResponse> {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
 
-export const PINATA_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
+      const response = await fetch("/api/ipfs/upload", {
+        method: "POST",
+        body: formData,
+      });
 
-export async function uploadToIPFS(file: File): Promise<string> {
-  try {
-    const result = await pinata.upload.file(file);
-    return `${PINATA_GATEWAY}${result.cid}`; // Using Pinata gateway
-  } catch (error) {
-    console.error("IPFS upload error:", error);
-    throw new Error("Failed to upload to IPFS");
-  }
-}
+      const contentType = response.headers.get("content-type");
+      if (!response.ok) {
+        if (contentType?.includes("application/json")) {
+          const error = await response.json();
+          throw new Error(error.error || "Upload failed");
+        } else {
+          const text = await response.text();
+          console.error("Server response:", text);
+          throw new Error("Server error");
+        }
+      }
 
-export function createMetadata(
-  name: string,
-  description: string,
-  imageUrl: string
-) {
-  return {
-    name,
-    description,
-    image: imageUrl,
-    attributes: [],
-  };
-}
-
-export async function uploadMetadataToIPFS(metadata: any): Promise<string> {
-  try {
-    const result = await pinata.upload.json(metadata);
-    return result.cid; // Just return the CID, not the full URL
-  } catch (error) {
-    console.error("Metadata upload error:", error);
-    throw new Error("Failed to upload metadata to IPFS");
-  }
-}
-
-const client = createPublicClient({
-  chain: sepolia,
-  transport: http(),
-});
-
-const NFT_CONTRACT_ADDRESS = "0xc507d4FbD9b5Bd102668c00a3eF7ec68bF95C6A1";
-const TOKEN_ID = 209;
-
-export async function verifyNFT() {
-  try {
-    const tokenURI = await client.readContract({
-      address: NFT_CONTRACT_ADDRESS,
-      abi: [
-        {
-          inputs: [
-            { internalType: "uint256", name: "tokenId", type: "uint256" },
-          ],
-          name: "tokenURI",
-          outputs: [{ internalType: "string", name: "", type: "string" }],
-          stateMutability: "view",
-          type: "function",
-        },
-      ],
-      functionName: "tokenURI",
-      args: [BigInt(TOKEN_ID)],
-    });
-
-    console.log("Token URI:", tokenURI);
-
-    // Fetch metadata
-    const response = await fetch(tokenURI);
-    const metadata = await response.json();
-    console.log("Metadata:", metadata);
-
-    // Verify image
-    if (metadata.image) {
-      const imageResponse = await fetch(metadata.image);
-      console.log("Image status:", imageResponse.status);
+      return await response.json();
+    } catch (error) {
+      console.error("IPFS file upload error:", error);
+      throw new Error(
+        error instanceof Error ? error.message : "Failed to upload file to IPFS"
+      );
     }
-  } catch (error) {
-    console.error("Error:", error);
+  }
+
+  async uploadMetadata(metadata: NFTMetadata): Promise<IPFSResponse> {
+    try {
+      const response = await fetch("/api/ipfs/metadata", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(metadata),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Metadata upload failed");
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("IPFS metadata upload error:", error);
+      throw new Error("Failed to upload metadata to IPFS");
+    }
+  }
+
+  processUrl(url: string | undefined): string | undefined {
+    if (!url) return undefined;
+
+    try {
+      if (url.includes("gateway.pinata.cloud")) {
+        return url;
+      }
+
+      let cid: string | undefined;
+
+      if (url.includes("/ipfs/")) {
+        cid = url.split("/ipfs/")[1];
+      } else if (url.startsWith("ipfs://")) {
+        cid = url.replace("ipfs://", "");
+      } else {
+        cid = url;
+      }
+
+      return cid ? `https://gateway.pinata.cloud/ipfs/${cid}` : undefined;
+    } catch (error) {
+      console.error("Error processing IPFS URL:", error);
+      return undefined;
+    }
   }
 }
 
-verifyNFT();
+export const ipfsService = new IPFSService();

@@ -7,11 +7,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Upload } from "lucide-react";
-import { uploadToIPFS, createMetadata, uploadMetadataToIPFS } from "@/lib/ipfs";
 import { NFT_CONTRACT_ADDRESS, NFT_CONTRACT_ABI } from "@/lib/contracts";
 import { Footer } from "./footer";
 import SpecialButton from "./special-button";
 import MintingDialog from "./minting-dialog";
+import { NFTMetadata } from "@/types/ipfs";
+import { ipfsService } from "@/lib/ipfs";
+
+interface DialogState {
+  open: boolean;
+  error: boolean;
+  transactionHash: string;
+  imageUrl: string;
+}
 
 export function MintingForm() {
   const { address, isConnected } = useAccount();
@@ -22,10 +30,13 @@ export function MintingForm() {
     description: "",
     image: null as File | null,
   });
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [mintingError, setMintingError] = useState(false);
-  const [transactionHash, setTransactionHash] = useState<string>("");
-  const [mintedImageUrl, setMintedImageUrl] = useState<string>("");
+
+  const [dialogState, setDialogState] = useState<DialogState>({
+    open: false,
+    error: false,
+    transactionHash: "",
+    imageUrl: "",
+  });
 
   const { writeContractAsync } = useWriteContract();
 
@@ -52,47 +63,57 @@ export function MintingForm() {
     try {
       setIsLoading(true);
 
-      // Upload image to IPFS
-      const imageUrl = await uploadToIPFS(formData.image);
-      console.log("Image uploaded:", imageUrl);
-      setMintedImageUrl(imageUrl); // Store the image URL
-      console.log("imageUrl", imageUrl);
+      // Upload image
+      const imageResult = await ipfsService.uploadFile(formData.image);
+
+      // Open dialog to show upload success
+      setDialogState((prev) => ({
+        ...prev,
+        open: true,
+        imageUrl: imageResult.url,
+        error: false,
+      }));
 
       // Create and upload metadata
-      const metadata = createMetadata(
-        formData.title,
-        formData.description,
-        imageUrl
-      );
-      const tokenUri = await uploadMetadataToIPFS(metadata);
-      console.log("Metadata uploaded:", tokenUri);
+      const metadata: NFTMetadata = {
+        name: formData.title,
+        description: formData.description,
+        image: imageResult.url,
+        attributes: [],
+      };
+      const { cid } = await ipfsService.uploadMetadata(metadata);
 
       // Mint NFT
       const hash = await writeContractAsync({
         address: NFT_CONTRACT_ADDRESS,
         abi: NFT_CONTRACT_ABI,
         functionName: "mint",
-        args: [address, tokenUri],
+        args: [address, cid],
       });
-      setTransactionHash(hash);
-      setMintingError(false);
-      setDialogOpen(true);
+
+      setDialogState((prev) => ({
+        ...prev,
+        transactionHash: hash,
+      }));
 
       toast({
         title: "Success",
         description: "NFT minted successfully!",
       });
 
-      // Reset form
-      setFormData({
-        title: "",
-        description: "",
-        image: null,
-      });
+      setFormData({ title: "", description: "", image: null });
     } catch (error) {
       console.error("Minting error:", error);
-      setMintingError(true);
-      setDialogOpen(true);
+      setDialogState((prev) => ({
+        ...prev,
+        open: true,
+        error: true,
+      }));
+      toast({
+        title: "Error",
+        description: "Failed to mint NFT",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -193,11 +214,11 @@ export function MintingForm() {
       <Footer />
 
       <MintingDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        isError={mintingError}
-        transactionHash={transactionHash}
-        imageUrl={mintedImageUrl} // Pass the image URL
+        open={dialogState.open}
+        onOpenChange={(open) => setDialogState((prev) => ({ ...prev, open }))}
+        isError={dialogState.error}
+        transactionHash={dialogState.transactionHash}
+        imageUrl={dialogState.imageUrl}
       />
     </div>
   );

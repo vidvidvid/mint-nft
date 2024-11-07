@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle } from "lucide-react";
 import SpecialButton from "./special-button";
-import { PINATA_GATEWAY } from "@/lib/ipfs";
+import { ipfsService } from "@/lib/ipfs";
 
 interface MintingDialogProps {
   open: boolean;
@@ -27,19 +27,10 @@ const MintingDialog: React.FC<MintingDialogProps> = ({
   transactionHash,
   imageUrl,
 }) => {
-  const getDisplayUrl = (url: string) => {
-    if (!url) return undefined;
-    console.log("url", url);
-
-    // If already using Pinata gateway, return as is
-    if (url.includes(PINATA_GATEWAY)) {
-      return url;
-    }
-
-    // For any other format, try to extract the CID
-    const cid = url.split("/ipfs/")[1] || url.replace("ipfs://", "");
-    return cid ? `${PINATA_GATEWAY}${cid}` : url;
-  };
+  const displayUrl = React.useMemo(
+    () => ipfsService.processUrl(imageUrl),
+    [imageUrl]
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -54,11 +45,17 @@ const MintingDialog: React.FC<MintingDialogProps> = ({
           ) : imageUrl ? (
             <div className='w-48 h-48 mx-auto relative mb-6'>
               <div className='absolute inset-0 bg-gradient-to-b from-blue-500/20 to-purple-500/20 rounded-full blur-2xl' />
-              <img
-                src={getDisplayUrl(imageUrl)}
-                alt='Minted NFT'
-                className='w-full h-full object-contain relative z-10 rounded-lg'
-              />
+              {displayUrl && (
+                <img
+                  src={displayUrl}
+                  alt='Minted NFT'
+                  className='w-full h-full object-contain relative z-10 rounded-lg'
+                  onError={(e) => {
+                    console.error("Error loading image");
+                    e.currentTarget.style.display = "none";
+                  }}
+                />
+              )}
             </div>
           ) : (
             <div className='mx-auto mb-4'>
