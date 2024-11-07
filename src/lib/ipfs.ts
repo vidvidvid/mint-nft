@@ -3,8 +3,8 @@ import { createPublicClient, http } from "viem";
 import { sepolia } from "viem/chains";
 
 const pinata = new PinataSDK({
-  pinataJwt: process.env.NEXT_PUBLIC_PINATA_JWT as string,
-  pinataGateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY as string,
+  pinataJwt: process.env.PINATA_JWT as string,
+  pinataGateway: process.env.PINATA_GATEWAY as string,
 });
 
 export const PINATA_GATEWAY = "https://gateway.pinata.cloud/ipfs/";
@@ -48,7 +48,7 @@ const client = createPublicClient({
 });
 
 const NFT_CONTRACT_ADDRESS = "0xc507d4FbD9b5Bd102668c00a3eF7ec68bF95C6A1";
-const TOKEN_ID = 209n;
+const TOKEN_ID = 209;
 
 export async function verifyNFT() {
   try {
@@ -66,7 +66,7 @@ export async function verifyNFT() {
         },
       ],
       functionName: "tokenURI",
-      args: [TOKEN_ID],
+      args: [BigInt(TOKEN_ID)],
     });
 
     console.log("Token URI:", tokenURI);
